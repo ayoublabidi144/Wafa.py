@@ -1,3 +1,4 @@
+pyTelegramBotAPI
 requests
-urllib3
 curl_cffi
+urllib3
