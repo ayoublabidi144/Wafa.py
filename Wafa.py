@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-⚡ MATRIX BOT — FINAL FIXED FOR RENDER (Web Port + Full Features)
+⚡ MATRIX BOT — WITHOUT TELEGRAM FORCED SUBSCRIPTION (Render Ready)
 """
 
 import requests, time, re, json, threading, logging, sys
@@ -97,7 +97,7 @@ _lock, _save_lock = threading.Lock(), threading.Lock()
 _save_pending = {"flag": False}
 _users, _sessions, _devices = {}, {}, {}
 
-_forced_channels = [{"id": "@dznet3", "name": "قناة الإثباتات والجديد"}]
+_forced_channels = []  # تم تفريغ القنوات الإجبارية
 
 def clean_instagram_url(url):
     try:
@@ -107,7 +107,7 @@ def clean_instagram_url(url):
     except:
         return url.strip()
 
-_forced_instagram = [{"name": "taibreffess", "url": clean_instagram_url("https://www.instagram.com/taibreffess?exln=MWthcGhjOW82ZG9ndg==")}]
+_forced_instagram = [] # تم إزالة الإنستغرام أيضاً إن أردت، أو اتركه حسب رغبتك
 
 _log_channel = LOG_CHANNEL_ID
 _bot_stats = {"users": 0, "activations": 0}
@@ -165,9 +165,8 @@ def _load_from_disk():
             data = json.load(f)
         _users = {int(k): v for k, v in data.get("users", {}).items()}
         _devices = {int(k): v for k, v in data.get("devices", {}).items()}
-        _forced_channels = data.get("channels", [{"id": "@dznet3", "name": "قناة الإثباتات والجديد"}])
-        loaded_ig = data.get("instagram", [])
-        _forced_instagram = loaded_ig if loaded_ig else [{"name": "taibreffess", "url": "https://www.instagram.com/taibreffess"}]
+        _forced_channels = []
+        _forced_instagram = []
         _log_channel = data.get("log_channel", LOG_CHANNEL_ID)
         _bot_stats = data.get("stats", {"users": len(_users), "activations": 0})
         _maintenance = data.get("maintenance", False)
@@ -443,34 +442,11 @@ def send_log(text):
     except Exception as e:
         logger.error(f"Failed to send log to channel: {e}")
 
-# ═══════════════════════════ Subscription Verification ═══════════════════════════
+# ═══════════════════════════ Subscription Verification (BYPASSED) ═══════════════════════════
 def check_telegram_channels(cid):
-    if cid == ADMIN_ID or not _forced_channels:
-        return True
-    for ch in _forced_channels:
-        ch_id = ch.get("id")
-        try:
-            res = tg_request("getChatMember", chat_id=ch_id, user_id=cid)
-            if res and res.get("ok"):
-                status = res["result"].get("status")
-                if status in ("left", "kicked"):
-                    return False
-            else:
-                return False
-        except:
-            return False
     return True
 
 def check_user_subscription(cid):
-    if cid == ADMIN_ID:
-        return True
-    if not check_telegram_channels(cid):
-        return "telegram_missing"
-    
-    u = oo_get_user(cid) or {}
-    if _forced_instagram and not u.get("instagram_verified", False):
-        return "instagram_missing"
-        
     return True
 
 # ═══════════════════════════ Menus & Support/Donation Markup ═══════════════════════════
@@ -539,19 +515,9 @@ def admin_panel_menu(cid, message_id):
         f"━━━━━━━━━━━━━━━━━━━━━\n"
         f"👥 <b>إجمالي المستخدمين:</b> <code>{total_users}</code>\n"
         f"🎉 <b>إجمالي التفعيلات:</b> <code>{activations}</code>\n"
-        f"📌 <b>قنوات تليجرام:</b> <b>{len(_forced_channels)}</b>\n"
-        f"📸 <b>حسابات إنستغرام:</b> <b>{len(_forced_instagram)}</b>"
     )
     
     inline_kb = Markup(row_width=2)
-    inline_kb.row(
-        btn("إضافة قناة 📢", callback_data="add_sub_ch", color='success'),
-        btn("حذف القنوات 🗑️", callback_data="del_sub_ch", color='danger')
-    )
-    inline_kb.row(
-        btn("إضافة إنستغرام 📸", callback_data="add_insta_ch", color='success'),
-        btn("حذف إنستغرام 🗑️", callback_data="del_insta_ch", color='danger')
-    )
     inline_kb.add(btn("إرسال رسالة للمستخدمين ✉️", callback_data="broadcast_msg", color='success'))
     inline_kb.add(btn("عرض أيدي المستخدمين 🆔", callback_data="list_users_ids", color='primary'))
     inline_kb.add(btn("الإحصائيات الشاملة 📊", callback_data="bot_stats", color='primary'))
@@ -563,41 +529,7 @@ def admin_panel_menu(cid, message_id):
         ben.send_message(cid, panel_text, parse_mode="HTML", reply_markup=inline_kb)
 
 def send_subscription_warning(cid, message_id=None):
-    sub_status = check_user_subscription(cid)
-    kb = Markup(row_width=1)
-    
-    if sub_status == "telegram_missing":
-        msg = (
-            f"⚠️ <b>المرحلة 1: الاشتراك الإجباري في قنوات تليجرام!</b>\n\n"
-            f"يرجى الاشتراك في القنوات التالية أولاً ثم اضغط على زر التحقق:"
-        )
-        for ch in _forced_channels:
-            name = ch.get("name", "قناة")
-            url = f"https://t.me/{ch.get('id').replace('@', '')}"
-            kb.add(btn(f"الانضمام إلى {name}", url=url, color='success'))
-        kb.add(btn("تحقق من اشتراك تليجرام ✅", callback_data="check_sub", color='primary'))
-        
-    elif sub_status == "instagram_missing":
-        msg = (
-            f"⚠️ <b>المرحلة 2: الاشتراك الإجباري في إنستغرام!</b>\n\n"
-            f"لقد اشتركت في قنوات تليجرام بنجاح! 🎉\n"
-            f"الآن يرجى متابعة الحساب عبر الزر أدناه (Instagram) ثم اضغط تحقق:"
-        )
-        for ig in _forced_instagram:
-            ig_url = clean_instagram_url(ig.get("url"))
-            kb.add(btn("Instagram", url=ig_url, color='success'))
-            
-        kb.add(btn("تحقق من متابعة إنستغرام ✅", callback_data="check_insta", color='primary'))
-    else:
-        return
-        
-    if message_id:
-        try:
-            ben.edit_message_text(msg, chat_id=cid, message_id=message_id, parse_mode="HTML", reply_markup=kb)
-        except:
-            ben.send_message(cid, msg, parse_mode="HTML", reply_markup=kb)
-    else:
-        ben.send_message(cid, msg, parse_mode="HTML", reply_markup=kb)
+    return
 
 # ═══════════════════════════ Actions ═══════════════════════════
 def oo_do_free_2go(cid, user, message_id=None):
@@ -605,10 +537,6 @@ def oo_do_free_2go(cid, user, message_id=None):
     if not lock.acquire(blocking=False):
         return
     try:
-        if check_user_subscription(cid) != True:
-            send_subscription_warning(cid, message_id)
-            return
-
         if not user or not user.get("access_token"):
             oo_set_session(cid, {"state": "awaiting_phone"})
             text = (
@@ -696,9 +624,6 @@ def start(message):
     cid = message.chat.id
     if _maintenance and cid != ADMIN_ID:
         return ben.send_message(cid, "🔧 البوت في حالة صيانة حالياً.")
-        
-    if check_user_subscription(cid) != True:
-        return send_subscription_warning(cid)
 
     user = oo_get_user(cid)
     oo_menu(cid, user)
@@ -719,38 +644,10 @@ def handle_text(message):
     
     if _maintenance and cid != ADMIN_ID:
         return ben.send_message(cid, "🔧 البوت في حالة صيانة.")
-        
-    if check_user_subscription(cid) != True:
-        return send_subscription_warning(cid)
 
     sess  = oo_get_session(cid)
     state = sess.get("state", "")
     user  = oo_get_user(cid)
-
-    if state == "admin_add_channel":
-        if cid != ADMIN_ID: return
-        oo_clear_session(cid)
-        parts = text.split("|")
-        ch_id = parts[0].strip()
-        ch_name = parts[1].strip() if len(parts) > 1 else "قناة"
-        _forced_channels.append({"id": ch_id, "name": ch_name})
-        _do_save()
-        kb = Markup()
-        kb.add(btn("لوحة التحكم 🛠️", callback_data="admin_panel", color='primary'))
-        return ben.send_message(cid, f"✅ تمت إضافة القناة ({ch_name}) بنجاح.", parse_mode="HTML", reply_markup=kb)
-
-    if state == "admin_add_insta":
-        if cid != ADMIN_ID: return
-        oo_clear_session(cid)
-        parts = text.split("|")
-        ig_name = parts[0].strip()
-        raw_url = parts[1].strip() if len(parts) > 1 else "https://instagram.com/"
-        ig_url = clean_instagram_url(raw_url)
-        _forced_instagram.append({"name": ig_name, "url": ig_url})
-        _do_save()
-        kb = Markup()
-        kb.add(btn("لوحة التحكم 🛠️", callback_data="admin_panel", color='primary'))
-        return ben.send_message(cid, f"✅ تمت إضافة حساب إنستغرام بنجاح بالرابط النظيف.", parse_mode="HTML", reply_markup=kb)
 
     if state == "admin_broadcast":
         if cid != ADMIN_ID: return
@@ -857,31 +754,7 @@ def handle_callback(call):
         data = call.data
         user = oo_get_user(cid)
 
-        if data == "check_sub":
-            if check_telegram_channels(cid):
-                if _forced_instagram:
-                    try: ben.answer_callback_query(call.id, "✅ ممتاز! انتقل لمتابعة إنستغرام الآن.", show_alert=True)
-                    except: pass
-                    send_subscription_warning(cid, message_id)
-                else:
-                    try: ben.answer_callback_query(call.id, "✅ تم التحقق بنجاح!", show_alert=True)
-                    except: pass
-                    oo_menu(cid, user, message_id)
-            else:
-                try: ben.answer_callback_query(call.id, "❌ لم تقم بالاشتراك في قنوات تليجرام بعد!", show_alert=True)
-                except: pass
-
-        elif data == "check_insta":
-            oo_save_user(cid, {"instagram_verified": True})
-            if check_user_subscription(cid) == True:
-                try: ben.answer_callback_query(call.id, "✅ تم التحقق من إنستغرام بنجاح!", show_alert=True)
-                except: pass
-                oo_menu(cid, user, message_id)
-            else:
-                try: ben.answer_callback_query(call.id, "❌ يرجى الضغط ومتابعة الحساب أولاً!", show_alert=True)
-                except: pass
-
-        elif data == "support_bot":
+        if data == "support_bot":
             try: ben.answer_callback_query(call.id)
             except: pass
             support_caption = (
@@ -909,44 +782,6 @@ def handle_callback(call):
             try: ben.answer_callback_query(call.id)
             except: pass
             oo_menu(cid, user, message_id)
-
-        elif data == "add_sub_ch":
-            if cid != ADMIN_ID: return
-            try: ben.answer_callback_query(call.id)
-            except: pass
-            oo_set_session(cid, {"state": "admin_add_channel"})
-            ben.send_message(cid, "➕ أرسل معرف القناة واسمها بالشكل التالي:\n\n<code>@channel | اسم القناة</code>", parse_mode="HTML")
-
-        elif data == "del_sub_ch":
-            if cid != ADMIN_ID: return
-            try: ben.answer_callback_query(call.id)
-            except: pass
-            _forced_channels.clear()
-            _do_save()
-            kb = Markup()
-            kb.add(btn("رجوع", callback_data="admin_panel", color='primary'))
-            try: ben.edit_message_text("✅ تم حذف جميع قنوات تليجرام الإجبارية.", chat_id=cid, message_id=message_id, reply_markup=kb)
-            except: ben.send_message(cid, "✅ تم حذف جميع قنوات تليجرام الإجبارية.", reply_markup=kb)
-
-        elif data == "add_insta_ch":
-            if cid != ADMIN_ID: return
-            try: ben.answer_callback_query(call.id)
-            except: pass
-            oo_set_session(cid, {"state": "admin_add_insta"})
-            ben.send_message(cid, "📸 أرسل اسم الحساب ورابطه بالشكل التالي:\n\n<code>اسم الحساب | https://instagram.com/username</code>", parse_mode="HTML")
-
-        elif data == "del_insta_ch":
-            if cid != ADMIN_ID: return
-            try: ben.answer_callback_query(call.id)
-            except: pass
-            _forced_instagram.clear()
-            for u_id in _users:
-                _users[u_id].pop("instagram_verified", None)
-            _do_save()
-            kb = Markup()
-            kb.add(btn("رجوع", callback_data="admin_panel", color='primary'))
-            try: ben.edit_message_text("✅ تم حذف جميع حسابات إنستغرام الإجبارية.", chat_id=cid, message_id=message_id, reply_markup=kb)
-            except: ben.send_message(cid, "✅ تم حذف جميع حسابات إنستغرام الإجبارية.", reply_markup=kb)
 
         elif data == "broadcast_msg":
             if cid != ADMIN_ID: return
@@ -983,8 +818,6 @@ def handle_callback(call):
                 f"📊 <b>الإحصائيات الشاملة للبوت:</b>\n\n"
                 f"👥 إجمالي المستخدمين: <b>{total_u}</b>\n"
                 f"🎉 عمليات التفعيل الناجحة: <b>{acts}</b>\n"
-                f"📌 قنوات تليجرام: <b>{len(_forced_channels)}</b>\n"
-                f"📸 حسابات إنستغرام: <b>{len(_forced_instagram)}</b>"
             )
             kb = Markup()
             kb.add(btn("رجوع للوحة التحكم", callback_data="admin_panel", color='primary'))
@@ -992,10 +825,6 @@ def handle_callback(call):
             except: ben.send_message(cid, stats_text, parse_mode="HTML", reply_markup=kb)
 
         elif data == "change_phone":
-            if check_user_subscription(cid) != True:
-                try: ben.answer_callback_query(call.id, "⚠️ يجب إتمام الاشتراكات الإجبارية أولاً!", show_alert=True)
-                except: pass
-                return
             try: ben.answer_callback_query(call.id, "جاري الإعداد...")
             except: pass
             oo_delete_user(cid)
@@ -1019,11 +848,6 @@ def handle_callback(call):
                 ben.send_message(cid, "✅ تم إرسال رمز جديد.")
 
         elif data == "do_2g":
-            if check_user_subscription(cid) != True:
-                try: ben.answer_callback_query(call.id, "⚠️ يجب إتمام الاشتراكات الإجبارية أولاً!", show_alert=True)
-                except: pass
-                send_subscription_warning(cid, message_id)
-                return
             try: ben.answer_callback_query(call.id, "جاري المعالجة...")
             except: pass
             threading.Thread(target=oo_do_free_2go, args=(cid, user, message_id), daemon=True).start()
@@ -1034,9 +858,8 @@ def handle_callback(call):
 # ═══════════════════════════ Main Execution ═══════════════════════════
 def run():
     _load_from_disk()
-    # تشغيل خادم الويب الخفي في الخلفية لإرضاء Render وفتح المنفذ
     threading.Thread(target=run_web_server, daemon=True).start()
-    print('[+] Bot Started Successfully with Web Port & /start Fixed!')
+    print('[+] Bot Started Successfully without forced channels!')
     ben.infinity_polling(skip_pending=True)
 
 if __name__ == '__main__':
