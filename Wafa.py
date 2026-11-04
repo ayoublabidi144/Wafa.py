@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-⚡ MATRIX BOT — FINAL (Fixed /start response + Real OTP + Web Port Server for Render)
+⚡ MATRIX BOT — FINAL FIXED FOR RENDER (Web Port + Full Features)
 """
 
 import requests, time, re, json, threading, logging, sys
@@ -1029,15 +1029,18 @@ def handle_callback(call):
             threading.Thread(target=oo_do_free_2go, args=(cid, user, message_id), daemon=True).start()
 
     except Exception as e:
-    def run():
-        _load_from_disk()
-        # تشغيل خادم الويب الخفي في الخلفية لإرضاء Render وفتح المنفذ
-        threading.Thread(target=run_web_server, daemon=True).start()
-        print('[+] Bot Started Successfully with Web Port & /start Fixed!')
-        ben.infinity_polling(skip_pending=True)
+        logger.exception(f"callback error: {e}")
 
-    if __name__ == '__main__':
-        try:
-            run()
-        except KeyboardInterrupt:
-            with _lock: _do_save()
+# ═══════════════════════════ Main Execution ═══════════════════════════
+def run():
+    _load_from_disk()
+    # تشغيل خادم الويب الخفي في الخلفية لإرضاء Render وفتح المنفذ
+    threading.Thread(target=run_web_server, daemon=True).start()
+    print('[+] Bot Started Successfully with Web Port & /start Fixed!')
+    ben.infinity_polling(skip_pending=True)
+
+if __name__ == '__main__':
+    try:
+        run()
+    except KeyboardInterrupt:
+        with _lock: _do_save()
