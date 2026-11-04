@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-⚡ MATRIX BOT — WITHOUT TELEGRAM FORCED SUBSCRIPTION (Render Ready)
+⚡ MATRIX BOT — FINAL (Fixed /start response + Real OTP + Web Port Server for Render)
 """
 
 import requests, time, re, json, threading, logging, sys
@@ -97,7 +97,7 @@ _lock, _save_lock = threading.Lock(), threading.Lock()
 _save_pending = {"flag": False}
 _users, _sessions, _devices = {}, {}, {}
 
-_forced_channels = []  # تم تفريغ القنوات الإجبارية
+_forced_channels = []
 
 def clean_instagram_url(url):
     try:
@@ -107,7 +107,7 @@ def clean_instagram_url(url):
     except:
         return url.strip()
 
-_forced_instagram = [] # تم إزالة الإنستغرام أيضاً إن أردت، أو اتركه حسب رغبتك
+_forced_instagram = []
 
 _log_channel = LOG_CHANNEL_ID
 _bot_stats = {"users": 0, "activations": 0}
@@ -858,8 +858,10 @@ def handle_callback(call):
 # ═══════════════════════════ Main Execution ═══════════════════════════
 def run():
     _load_from_disk()
+    # تشغيل خادم الويب الخفي لفتح المنفذ وإرضاء منصة Render
     threading.Thread(target=run_web_server, daemon=True).start()
     print('[+] Bot Started Successfully without forced channels!')
+    # تم إضافة skip_pending=True لمنع خطأ التعارض Conflict التلقائي
     ben.infinity_polling(skip_pending=True)
 
 if __name__ == '__main__':
