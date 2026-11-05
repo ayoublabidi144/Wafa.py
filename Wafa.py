@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-⚡ MATRIX BOT — FINAL (Fixed /start response + Real OTP + Web Port Server for Render)
+⚡ MATRIX BOT — 24/7 Auto-Recovery & Render Ready
 """
 
 import requests, time, re, json, threading, logging, sys
@@ -855,14 +855,20 @@ def handle_callback(call):
     except Exception as e:
         logger.exception(f"callback error: {e}")
 
-# ═══════════════════════════ Main Execution ═══════════════════════════
+# ═══════════════════════════ Main Execution with Auto-Recovery Loop ═══════════════════════════
 def run():
     _load_from_disk()
     # تشغيل خادم الويب الخفي لفتح المنفذ وإرضاء منصة Render
     threading.Thread(target=run_web_server, daemon=True).start()
-    print('[+] Bot Started Successfully without forced channels!')
-    # تم إضافة skip_pending=True لمنع خطأ التعارض Conflict التلقائي
-    ben.infinity_polling(skip_pending=True)
+    print('[+] Bot Started Successfully 24/7 with Auto-Recovery!')
+    
+    while True:
+        try:
+            # تخطي أي جلسات معلقة منعاً لحدوث خطأ Conflict
+            ben.infinity_polling(skip_pending=True, interval=1, timeout=20)
+        except Exception as e:
+            logger.error(f"Bot crashed with error: {e}. Restarting in 5 seconds...")
+            time.sleep(5)
 
 if __name__ == '__main__':
     try:
