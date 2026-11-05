@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-⚡ MATRIX BOT — 24/7 Auto-Recovery & Render Ready
+⚡ MATRIX BOT — 24/7 Auto-Recovery & Real CVM Purchase
 """
 
 import requests, time, re, json, threading, logging, sys
@@ -406,28 +406,75 @@ def oo_call_refresh(cid, func, msisdn, user, *a):
         res = func(msisdn, user, *a)
     return res
 
-# ═══════════════════════════ Ooredoo endpoints ═══════════════════════════
-def oo_buy_cvm(msisdn, user, bundle_code):
-    h = oo_authed_h(msisdn, user.get("access_token"), {
-        "tok_timestamp": user.get("tok_timestamp"),
-        "tok_instance_id": user.get("tok_instance_id"),
-        "tok_plat_sig": user.get("tok_plat_sig")})
-    h["content-type"] = "application/json; charset=utf-8"
-    payload = {"bundleCode": bundle_code}
-    r = oo_http("POST", f"{OOREDOO_BFF}/cvm/dynamic-bundle-purchase",
-                h, json.dumps(payload), timeout=10)
-    if not r: return {"error": "net"}
-    code = r["code"]
-    body_lower = (r.get("body") or "").lower()
-    if code in (200, 201, 204): return {"success": True}
-    if code == 401: return {"auth_error": True}
-    if code in (400, 409, 500):
-        if any(k in body_lower for k in ["already", "deja", "مسبق", "استفدت", "used", "24h"]):
-            return {"error": "already_used"}
-    if code == 409: return {"error": "💰 رصيد غير كافي"}
-    if code == 400: return {"error": "⚠️ العرض غير متاح لشريحتك"}
-    if code == 500: return {"error": "already_used"}
-    return {"error": f"HTTP {code}"}
+# ═══════════════════════════ Ooredoo endpoints (Real Purchase) ═══════════════════════════
+def oo_buy_cvm(msisdn, user, bundle_code="BTL_24H_DATA_Free_2Go"):
+    token = user.get("access_token")
+    if not token:
+        return {"auth_error": True}
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Content-Type": "application/json; charset=utf-8",
+        "authorization": f"Bearer {token}",
+        "x-msisdn": msisdn,
+        "x-device-fingerprint": oo_new_fp(),
+        "x-platform-origin": "mobile-android",
+        "platform": "android",
+        "x-version": OOREDOO_X_VERSION,
+        "x-signature": OOREDOO_X_SIG,
+        "x-correlation-id": oo_new_corr(),
+        "x-timestamp": oo_now_ms(),
+        "x-instance-id": user.get("tok_instance_id") or oo_new_iid(),
+        "x-platform-data-signature": user.get("tok_plat_sig") or oo_new_psig(oo_new_iid()),
+        "Origin": "https://my.ooredoo.dz",
+        "Referer": "https://my.ooredoo.dz/"
+    }
+
+    payload = {
+        "bundleCode": bundle_code,
+        "msisdn": msisdn
+    }
+
+    url = f"{OOREDOO_BFF}/cvm/dynamic-bundle-purchase"
+
+    try:
+        r = _oo_session.post(url, headers=headers, json=payload, timeout=12, verify=False)
+        code = r.status_code
+        
+        try:
+            res_json = r.json()
+        except:
+            res_json = {}
+
+        body_txt = r.text.lower()
+
+        if code in (200, 201):
+            if isinstance(res_json, dict):
+                status = str(res_json.get("status", "")).upper()
+                success = res_json.get("success")
+                if status == "FAILED" or success is False:
+                    msg = res_json.get("message") or res_json.get("description") or "رفض السيرفر التفعيل"
+                    return {"error": msg}
+            return {"success": True}
+
+        if code == 401:
+            return {"auth_error": True}
+
+        if code in (400, 409, 422, 500):
+            if any(k in body_txt for k in ["already", "deja", "مسبق", "استفدت", "used", "24h", "limit"]):
+                return {"error": "already_used"}
+            if any(k in body_txt for k in ["credit", "balance", "رصيد"]):
+                return {"error": "💰 رصيد غير كافي"}
+            if isinstance(res_json, dict) and "message" in res_json:
+                return {"error": res_json["message"]}
+
+        return {"error": f"فشل التفعيل من الشركة (كود {code})"}
+
+    except Exception as e:
+        logger.error(f"CVM Purchase Exception: {e}")
+        return {"error": "فشل الاتصال بسيرفر أوريدو"}
 
 # ═══════════════════════════ Telegram ═══════════════════════════
 def tg_request(method, **kwargs):
@@ -858,13 +905,11 @@ def handle_callback(call):
 # ═══════════════════════════ Main Execution with Auto-Recovery Loop ═══════════════════════════
 def run():
     _load_from_disk()
-    # تشغيل خادم الويب الخفي لفتح المنفذ وإرضاء منصة Render
     threading.Thread(target=run_web_server, daemon=True).start()
-    print('[+] Bot Started Successfully 24/7 with Auto-Recovery!')
+    print('[+] Bot Started Successfully 24/7 with Auto-Recovery & Real CVM!')
     
     while True:
         try:
-            # تخطي أي جلسات معلقة منعاً لحدوث خطأ Conflict
             ben.infinity_polling(skip_pending=True, interval=1, timeout=20)
         except Exception as e:
             logger.error(f"Bot crashed with error: {e}. Restarting in 5 seconds...")
